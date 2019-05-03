@@ -5,7 +5,7 @@ Python implementation of Leybourne-McCabe (1994, 1999) stationarity test.
 x : array_like, 1d \
 &nbsp;&nbsp;&nbsp;&nbsp;data series \
 arlags : int \
-&nbsp;&nbsp;&nbsp;&nbsp;number of autoregressive terms to include, default=None
+&nbsp;&nbsp;&nbsp;&nbsp;number of autoregressive terms to include, default=None \
 regression : {'c','ct'} \
 &nbsp;&nbsp;&nbsp;&nbsp;Constant and trend order to include in regression \
 &nbsp;&nbsp;&nbsp;&nbsp;* 'c'  : constant only (default) \
