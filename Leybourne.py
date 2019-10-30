@@ -30,7 +30,7 @@ class Leybourne(object):
         self.__leybourne_critical_values = {}
         # constant-only model
         self.__c = ((99.900, 0.0169233), (99.000, 0.0247863), (98.000, 0.0287636),
-                    (97.000, 0.0317512), (96.000, 0.0342505), (95.000, 0.0364872), 
+                    (97.000, 0.0317512), (96.000, 0.0342505), (95.000, 0.0364872),
                     (92.500, 0.0415061), (90.000, 0.0459481), (85.000, 0.0542763),
                     (80.000, 0.0621976), (75.000, 0.0702117), (70.000, 0.0785789),
                     (65.000, 0.0968259), (60.000, 0.0968259), (57.500, 0.101951),
@@ -49,7 +49,7 @@ class Leybourne(object):
         # constant+trend model
         self.__ct = ((99.900, 0.0126788), (99.000, 0.0172984), (98.000, 0.0194624),
                      (97.000, 0.0210446), (96.000, 0.0223274), (95.000, 0.0234485),
-                     (92.500, 0.0258551), (90.000, 0.0279374), (85.000, 0.0315677), 
+                     (92.500, 0.0258551), (90.000, 0.0279374), (85.000, 0.0315677),
                      (80.000, 0.0349355), (75.000, 0.0381676), (70.000, 0.0413931),
                      (65.000, 0.0446997), (60.000, 0.0481063), (57.500, 0.0498755),
                      (55.000, 0.0517089), (52.500, 0.0536157), (50.000, 0.0555732),
@@ -106,6 +106,26 @@ class Leybourne(object):
         Two-stage least squares approach for estimating ARIMA(p, 1, 1)
         parameters as an alternative to MLE estimation in the case of
         solver non-convergence
+
+        Parameters
+        ----------
+        x : array_like
+            data series
+        arlags : int
+            AR(p) order
+        model : {'c','ct'}
+            Constant and trend order to include in regression
+            * 'c'  : constant only
+            * 'ct' : constant and trend
+
+        Returns
+        -------
+        arparams : int
+            AR(1) coefficient plus constant
+        theta : int
+            MA(1) coefficient
+        olsfit.resid : ndarray
+            residuals from second-stage regression
         """
         endog = np.diff(x, axis=0)
         exog = lagmat(endog, arlags, trim='both')
@@ -114,7 +134,10 @@ class Leybourne(object):
             exog = add_constant(exog)
         # remove extra terms from front of endog
         endog = endog[arlags:]
-        resids = lagmat(OLS(endog, exog).fit().resid, 1, trim='forward')
+        if arlags > 0:
+            resids = lagmat(OLS(endog, exog).fit().resid, 1, trim='forward')
+        else:
+            resids = lagmat(-endog, 1, trim='forward')
         # add negated residuals column to exog as MA(1) term
         exog = np.append(exog, -resids, axis=1)
         olsfit = OLS(endog, exog).fit()
@@ -130,9 +153,19 @@ class Leybourne(object):
         Empirical method for Leybourne-McCabe auto AR lag detection.
         Set number of AR lags equal to the first PACF falling within the
         95% confidence interval. Maximum nuber of AR lags is limited to
-        1/2 series length.
+        the smaller of 10 or 1/2 series length.
+
+        Parameters
+        ----------
+        x : array_like
+            data series
+
+        Returns
+        -------
+        arlags : int
+            AR(p) order
         """
-        p = pacf(x, nlags=int(len(x) / 2), method='ols')
+        p = pacf(x, nlags=min(int(len(x)/2), 10), method='ols')
         ci = 1.960 / np.sqrt(len(x))
         arlags = max(1, ([ n for n, i in enumerate(p) if abs(i) < ci ] + [-1])[0])
         return arlags
@@ -140,7 +173,7 @@ class Leybourne(object):
     def run(self, x, arlags=1, regression='c', method='mle', varest='var94'):
         """
         Leybourne-McCabe stationarity test
-        
+
         The Leybourne-McCabe test can be used to test for stationarity in a
         univariate process.
 
