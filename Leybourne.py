@@ -4,7 +4,9 @@ import time
 import numpy as np
 import pandas as pd
 from builtins import int
-from statsmodels.tsa.arima_model import ARIMA
+# statsmodels 0.13 deprecates arima_model.ARIMA
+# in favor of arima.model.ARIMA
+from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.regression.linear_model import OLS
 from statsmodels.tools.tools import add_constant
 from statsmodels.tools.sm_exceptions import InterpolationWarning
@@ -269,11 +271,7 @@ class Leybourne(object):
                 'LM: arlags must be an integer in range [1..%s]' % str(int(len(x) / 2)))
         # estimate the reduced ARIMA(p, 1, 1) model
         if method == 'mle':
-            ar = ARIMA(x, order=(arlags, 1, 1))
-            if regression == 'c':
-                arfit = ar.fit(trend='nc', method='css-mle', transparams=False)
-            else:
-                arfit = ar.fit(trend='c', method='css-mle', transparams=False)
+            arfit = ARIMA(x, order=(arlags, 1, 1), trend=regression).fit()
             resids = arfit.resid
             arcoeffs = arfit.arparams
             theta = arfit.maparams[0]
@@ -336,13 +334,13 @@ def main():
             res = lm(mdl)
             _print_res(res=res, st=st)
             assert_equal(res[2], 3)
-            assert_almost_equal(res[0], 0.0915, decimal=3)
-            assert_almost_equal(res[1], 0.6645, decimal=3)
+            assert_almost_equal(res[0], 0.1252, decimal=3)
+            assert_almost_equal(res[1], 0.4747, decimal=3)
             st = time.time()
             res = lm(mdl, regression='ct')
             _print_res(res=res, st=st)
-            assert_almost_equal(res[0], 0.0933, decimal=3)
-            assert_almost_equal(res[1], 0.1913, decimal=3)
+            assert_almost_equal(res[0], 0.1248, decimal=3)
+            assert_almost_equal(res[1], 0.0881, decimal=3)
             assert_equal(res[2], 3)
         elif file == 'DSP500.csv':
             res = lm(mdl)
@@ -370,7 +368,7 @@ def main():
             res = lm(mdl, regression='ct')
             _print_res(res=res, st=st)
             assert_equal(res[2], 4)
-            assert_almost_equal(res[0], 2.4459, decimal=3)
+            assert_almost_equal(res[0], 2.4868, decimal=3)
             assert_almost_equal(res[1], 0.0000, decimal=3)
             st = time.time()
             res = lm(mdl, regression='ct', method='ols')
@@ -381,7 +379,7 @@ def main():
         elif file == 'SP500.csv':
             res = lm(mdl, arlags=4, regression='ct')
             _print_res(res=res, st=st)
-            assert_almost_equal(res[0], 1.8746, decimal=3)
+            assert_almost_equal(res[0], 1.8761, decimal=3)
             assert_almost_equal(res[1], 0.0000, decimal=3)
             st = time.time()
             res = lm(mdl, arlags=4, regression='ct', method='ols')
@@ -392,7 +390,7 @@ def main():
             res = lm(mdl, varest='var99')
             _print_res(res=res, st=st)
             assert_equal(res[2], 5)
-            assert_almost_equal(res[0], 1814.2051, decimal=3)
+            assert_almost_equal(res[0], 1221.0154, decimal=3)
             assert_almost_equal(res[1], 0.0000, decimal=3)
             st = time.time()
             res = lm(mdl, method='ols', varest='var99')
