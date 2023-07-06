@@ -3,16 +3,14 @@ import os
 import time
 import numpy as np
 import pandas as pd
-from builtins import int
-# statsmodels 0.13 deprecates arima_model.ARIMA
-# in favor of arima.model.ARIMA
+import warnings
 from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.regression.linear_model import OLS
 from statsmodels.tools.tools import add_constant
-from statsmodels.tools.sm_exceptions import InterpolationWarning
 from statsmodels.tsa.stattools import pacf
 from statsmodels.tsa.tsatools import lagmat
 from numpy.testing import assert_equal, assert_almost_equal
+
 
 class Leybourne(object):
     """
@@ -27,44 +25,56 @@ class Leybourne(object):
         Notes
         -----
         The p-values are generated through Monte Carlo simulation using
-        1,000,000 replications and 2000 data points.
+        1,000,000 replications and 10,000 data points.
         """
         self.__leybourne_critical_values = {}
         # constant-only model
-        self.__c = ((99.900, 0.0169233), (99.000, 0.0247863), (98.000, 0.0287636),
-                    (97.000, 0.0317512), (96.000, 0.0342505), (95.000, 0.0364872),
-                    (92.500, 0.0415061), (90.000, 0.0459481), (85.000, 0.0542763),
-                    (80.000, 0.0621976), (75.000, 0.0702117), (70.000, 0.0785789),
-                    (65.000, 0.0968259), (60.000, 0.0968259), (57.500, 0.101951),
-                    (55.000, 0.107248), (52.500, 0.112855), (50.000, 0.118809),
-                    (47.500, 0.125104), (45.000, 0.131743), (42.500, 0.138939),
-                    (40.000, 0.146608), (37.500, 0.154828), (35.000, 0.163827),
-                    (32.500, 0.173569), (30.000, 0.184215), (27.500, 0.196048),
-                    (25.000, 0.209452), (22.500, 0.224259), (20.000, 0.24128),
-                    (17.500, 0.260842), (15.000, 0.283831), (12.500, 0.311703),
-                    (10.000, 0.347373), (7.500, 0.393998), (5.000, 0.46169),
-                    (2.500, 0.580372), (1.000, 0.743491), (0.900, 0.763297),
-                    (0.800, 0.785173), (0.700, 0.809092), (0.600, 0.83664),
-                    (0.500, 0.869455), (0.400, 0.909901), (0.300, 0.962597),
-                    (0.200, 1.03998), (0.100, 1.16701), (0.001, 2.84682))
+        self.__c = ((99.9999, 0.00819), (99.999, 0.01050), (99.99, 0.01298),
+                    (99.9, 0.01701), (99.8, 0.01880), (99.7, 0.02005),
+                    (99.6, 0.02102), (99.5, 0.02186), (99.4, 0.02258),
+                    (99.3, 0.02321), (99.2, 0.02382), (99.1, 0.02437),
+                    (99.0, 0.02488), (97.5, 0.03045), (95.0, 0.03662),
+                    (92.5, 0.04162), (90.0, 0.04608), (87.5, 0.05024),
+                    (85.0, 0.05429), (82.5, 0.05827), (80.0, 0.06222),
+                    (77.5, 0.06621), (75.0, 0.07026), (72.5, 0.07439),
+                    (70.0, 0.07859), (67.5, 0.08295), (65.0, 0.08747),
+                    (62.5, 0.09214), (60.0, 0.09703), (57.5, 0.10212),
+                    (55.0, 0.10750), (52.5, 0.11315), (50.0, 0.11907),
+                    (47.5, 0.12535), (45.0, 0.13208), (42.5, 0.13919),
+                    (40.0, 0.14679), (37.5, 0.15503), (35.0, 0.16403),
+                    (32.5, 0.17380), (30.0, 0.18443), (27.5, 0.19638),
+                    (25.0, 0.20943), (22.5, 0.22440), (20.0, 0.24132),
+                    (17.5, 0.26123), (15.0, 0.28438), (12.5, 0.31242),
+                    (10.0, 0.34699), (7.5, 0.39354), (5.0, 0.45995),
+                    (2.5, 0.58098), (1.0, 0.74573), (0.9, 0.76453),
+                    (0.8, 0.78572), (0.7, 0.81005), (0.6, 0.83863),
+                    (0.5, 0.87385), (0.4, 0.91076), (0.3, 0.96501),
+                    (0.2, 1.03657), (0.1, 1.16658), (0.01, 1.60211),
+                    (0.001, 2.03312), (0.0001, 2.57878))
         self.__leybourne_critical_values['c'] = np.asarray(self.__c)
         # constant+trend model
-        self.__ct = ((99.900, 0.0126788), (99.000, 0.0172984), (98.000, 0.0194624),
-                     (97.000, 0.0210446), (96.000, 0.0223274), (95.000, 0.0234485),
-                     (92.500, 0.0258551), (90.000, 0.0279374), (85.000, 0.0315677),
-                     (80.000, 0.0349355), (75.000, 0.0381676), (70.000, 0.0413931),
-                     (65.000, 0.0446997), (60.000, 0.0481063), (57.500, 0.0498755),
-                     (55.000, 0.0517089), (52.500, 0.0536157), (50.000, 0.0555732),
-                     (47.500, 0.0576502), (45.000, 0.059805), (42.500, 0.062043),
-                     (40.000, 0.064408), (37.500, 0.0669198), (35.000, 0.0696337),
-                     (32.500, 0.0725157), (30.000, 0.0756156), (27.500, 0.079006),
-                     (25.000, 0.0827421), (22.500, 0.086865), (20.000, 0.09149),
-                     (17.500, 0.0967682), (15.000, 0.102787), (12.500, 0.110122),
-                     (10.000, 0.119149), (7.500, 0.130935), (5.000, 0.147723),
-                     (2.500, 0.177229), (1.000, 0.216605), (0.900, 0.221306),
-                     (0.800, 0.226324), (0.700, 0.23257), (0.600, 0.239896),
-                     (0.500, 0.248212), (0.400, 0.258809), (0.300, 0.271849),
-                     (0.200, 0.29052), (0.100, 0.324278), (0.001, 0.607007))
+        self.__ct = ((99.9999, 0.00759), (99.999, 0.00870), (99.99, 0.01023),
+                     (99.9, 0.01272), (99.8, 0.01378), (99.7, 0.01454),
+                     (99.6, 0.01509), (99.5, 0.01559), (99.4, 0.01598),
+                     (99.3, 0.01637), (99.2, 0.01673), (99.1, 0.01704),
+                     (99.0, 0.01731), (97.5, 0.02029), (95.0, 0.02342),
+                     (92.5, 0.02584), (90.0, 0.02791), (87.5, 0.02980),
+                     (85.0, 0.03158), (82.5, 0.03327), (80.0, 0.03492),
+                     (77.5, 0.03653), (75.0, 0.03813), (72.5, 0.03973),
+                     (70.0, 0.04135), (67.5, 0.04298), (65.0, 0.04464),
+                     (62.5, 0.04631), (60.0, 0.04805), (57.5, 0.04981),
+                     (55.0, 0.05163), (52.5, 0.05351), (50.0, 0.05546),
+                     (47.5, 0.05753), (45.0, 0.05970), (42.5, 0.06195),
+                     (40.0, 0.06434), (37.5, 0.06689), (35.0, 0.06962),
+                     (32.5, 0.07252), (30.0, 0.07564), (27.5, 0.07902),
+                     (25.0, 0.08273), (22.5, 0.08685), (20.0, 0.09150),
+                     (17.5, 0.09672), (15.0, 0.10285), (12.5, 0.11013),
+                     (10.0, 0.11917), (7.5, 0.13104), (5.0, 0.14797),
+                     (2.5, 0.17775), (1.0, 0.21801), (0.9, 0.22282),
+                     (0.8, 0.22799), (0.7, 0.23387), (0.6, 0.24109),
+                     (0.5, 0.24928), (0.4, 0.25888), (0.3, 0.27173),
+                     (0.2, 0.28939), (0.1, 0.32200), (0.01, 0.43218),
+                     (0.001, 0.54708), (0.0001, 0.69538))
         self.__leybourne_critical_values['ct'] = np.asarray(self.__ct)
 
     def __leybourne_crit(self, stat, model='c'):
@@ -155,7 +165,7 @@ class Leybourne(object):
         Empirical method for Leybourne-McCabe auto AR lag detection.
         Set number of AR lags equal to the first PACF falling within the
         95% confidence interval. Maximum nuber of AR lags is limited to
-        the smaller of 10 or 1/2 series length.
+        the smaller of 10 or 1/2 series length. Minimum is zero lags.
 
         Parameters
         ----------
@@ -169,7 +179,7 @@ class Leybourne(object):
         """
         p = pacf(x, nlags=min(int(len(x)/2), 10), method='ols')
         ci = 1.960 / np.sqrt(len(x))
-        arlags = max(1, ([ n for n, i in enumerate(p) if abs(i) < ci ] + [-1])[0])
+        arlags = max(0, ([n-1 for n, i in enumerate(p) if abs(i) < ci ] + [len(p)-1])[0])
         return arlags
 
     def run(self, x, arlags=1, regression='c', method='mle', varest='var94'):
@@ -266,14 +276,20 @@ class Leybourne(object):
         # determine AR order if not specified
         if arlags == None:
             arlags = self._autolag(x)
-        elif not isinstance(arlags, int) or arlags < 1 or arlags > int(len(x) / 2):
+        elif not isinstance(arlags, int) or arlags < 0 or arlags > int(len(x) / 2):
             raise ValueError(
-                'LM: arlags must be an integer in range [1..%s]' % str(int(len(x) / 2)))
+                'LM: arlags must be an integer in range [0..%s]' % str(int(len(x) / 2)))
         # estimate the reduced ARIMA(p, 1, 1) model
         if method == 'mle':
-            arfit = ARIMA(x, order=(arlags, 1, 1), trend=regression).fit()
+            if regression == 'ct':
+                reg = 't'
+            else:
+                reg = None
+            arfit = ARIMA(x, order=(arlags, 1, 1), trend=reg).fit()
             resids = arfit.resid
-            arcoeffs = arfit.arparams
+            arcoeffs = []
+            if arlags > 0:
+                arcoeffs = arfit.arparams
             theta = arfit.maparams[0]
         else:
             arcoeffs, theta, resids = self._tsls_arima(x, arlags, model=regression)
@@ -322,60 +338,64 @@ def _print_res(res, st):
 def main():
     print("Leybourne-McCabe stationarity test...")
     cur_dir = os.path.abspath(os.path.dirname(__file__))
-    run_dir = os.path.join(cur_dir, "results\\")
-    files = ['BAA.csv', 'DBAA.csv', 'SP500.csv', 'DSP500.csv', 'UN.csv', 'DUN.csv']
+    run_dir = os.path.join(cur_dir, "results")
+    files = ['BAA.csv', 'DBAA.csv', 'DSP500.csv', 'DUN.csv', 'SP500.csv', 'UN.csv']
     lm = Leybourne()
+    # turn off solver warnings
+    warnings.simplefilter("ignore")
     for file in files:
         print(" test file =", file)
         mdl_file = os.path.join(run_dir, file)
         mdl = np.asarray(pd.read_csv(mdl_file))
         st = time.time()
-        if file == 'DBAA.csv':
-            res = lm(mdl)
+        if file == 'BAA.csv':
+            res = lm(mdl, regression='ct')
             _print_res(res=res, st=st)
             assert_equal(res[2], 3)
-            assert_almost_equal(res[0], 0.1252, decimal=3)
-            assert_almost_equal(res[1], 0.4747, decimal=3)
+            assert_almost_equal(res[0], 5.4438, decimal=3)
+            assert_almost_equal(res[1], 0.0000, decimal=3)
+            st = time.time()
+            res = lm(mdl, regression='ct', method='ols')
+            _print_res(res=res, st=st)
+            assert_equal(res[2], 3)
+            assert_almost_equal(res[0], 5.4757, decimal=3)
+            assert_almost_equal(res[1], 0.0000, decimal=3)
+        elif file == 'DBAA.csv':
+            res = lm(mdl)
+            _print_res(res=res, st=st)
+            assert_equal(res[2], 2)
+            assert_almost_equal(res[0], 0.1173, decimal=3)
+            assert_almost_equal(res[1], 0.5072, decimal=3)
             st = time.time()
             res = lm(mdl, regression='ct')
             _print_res(res=res, st=st)
-            assert_almost_equal(res[0], 0.1248, decimal=3)
-            assert_almost_equal(res[1], 0.0881, decimal=3)
-            assert_equal(res[2], 3)
+            assert_equal(res[2], 2)
+            assert_almost_equal(res[0], 0.1175, decimal=3)
+            assert_almost_equal(res[1], 0.1047, decimal=3)
         elif file == 'DSP500.csv':
             res = lm(mdl)
             _print_res(res=res, st=st)
-            assert_equal(res[2], 1)
-            assert_almost_equal(res[0], 0.2855, decimal=3)
-            assert_almost_equal(res[1], 0.1485, decimal=3)
+            assert_equal(res[2], 0)
+            assert_almost_equal(res[0], 0.3118, decimal=3)
+            assert_almost_equal(res[1], 0.1256, decimal=3)
             st = time.time()
             res = lm(mdl, varest='var99')
             _print_res(res=res, st=st)
-            assert_equal(res[2], 1)
-            assert_almost_equal(res[0], 0.2874, decimal=3)
-            assert_almost_equal(res[1], 0.1468, decimal=3)
+            assert_equal(res[2], 0)
+            assert_almost_equal(res[0], 0.3145, decimal=3)
+            assert_almost_equal(res[1], 0.1235, decimal=3)
         elif file == 'DUN.csv':
             res = lm(mdl, regression='ct')
             _print_res(res=res, st=st)
-            assert_almost_equal(res[0], 0.1657, decimal=3)
-            assert_almost_equal(res[1], 0.0348, decimal=3)
+            assert_equal(res[2], 3)
+            assert_almost_equal(res[0], 0.0252, decimal=3)
+            assert_almost_equal(res[1], 0.9318, decimal=3)
             st = time.time()
             res = lm(mdl, regression='ct', method='ols')
             _print_res(res=res, st=st)
-            assert_almost_equal(res[0], 0.1650, decimal=3)
-            assert_almost_equal(res[1], 0.0353, decimal=3)
-        elif file == 'BAA.csv':
-            res = lm(mdl, regression='ct')
-            _print_res(res=res, st=st)
-            assert_equal(res[2], 4)
-            assert_almost_equal(res[0], 2.4868, decimal=3)
-            assert_almost_equal(res[1], 0.0000, decimal=3)
-            st = time.time()
-            res = lm(mdl, regression='ct', method='ols')
-            _print_res(res=res, st=st)
-            assert_equal(res[2], 4)
-            assert_almost_equal(res[0], 2.9926, decimal=3)
-            assert_almost_equal(res[1], 0.0000, decimal=3)
+            assert_equal(res[2], 3)
+            assert_almost_equal(res[0], 0.0938, decimal=3)
+            assert_almost_equal(res[1], 0.1890, decimal=3)
         elif file == 'SP500.csv':
             res = lm(mdl, arlags=4, regression='ct')
             _print_res(res=res, st=st)
@@ -389,15 +409,16 @@ def main():
         elif file == 'UN.csv':
             res = lm(mdl, varest='var99')
             _print_res(res=res, st=st)
-            assert_equal(res[2], 5)
-            assert_almost_equal(res[0], 1221.0154, decimal=3)
+            assert_equal(res[2], 4)
+            assert_almost_equal(res[0], 285.6100, decimal=3)
             assert_almost_equal(res[1], 0.0000, decimal=3)
             st = time.time()
             res = lm(mdl, method='ols', varest='var99')
             _print_res(res=res, st=st)
-            assert_equal(res[2], 5)
-            assert_almost_equal(res[0], 1022.3827, decimal=3)
+            assert_equal(res[2], 4)
+            assert_almost_equal(res[0], 556.0444, decimal=3)
             assert_almost_equal(res[1], 0.0000, decimal=3)
 
 if __name__ == "__main__":
     sys.exit(int(main() or 0))
+
