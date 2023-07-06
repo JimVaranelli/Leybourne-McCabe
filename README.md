@@ -30,11 +30,11 @@ cvdict : dict \
 &nbsp;&nbsp;&nbsp;&nbsp;critical values for the test statistic at the 1%, 5%, and 10% levels
 
 ## Notes
-Critical values for the two different models are generated through Monte Carlo simulation using 1,000,000 replications and 2000 data points
+Critical values for the two different models are generated through Monte Carlo simulation using 1,000,000 replications and 10,000 data points
 
 H0 = series is stationary
 
-Basic process is to create a filtered series which removes the AR(p) effects from the series under test followed by an auxiliary regression similar to that of Kwiatkowski et al (1992). The AR(p) coefficients are obtained by estimating an ARIMA(p, 1, 1) model. Two methods are provided for ARIMA estimation: MLE and two-stage least squares. Two methods are provided for residual variance estimation used in the calculation of the test statistic. The first method ('var94') is the mean of the squared residuals from the filtered regression. The second method ('var99') is the MA(1) coefficient times the mean of the squared residuals from the ARIMA(p, 1, 1) filtering model. An empirical autolag procedure is provided. In this context, the number of lags is equal to the number of AR(p) terms used in the filtering step. The number of AR(p) terms is set equal to the to the first PACF falling within the 95% confidence interval. Maximum nuber of AR lags is limited to 1/2 series length.
+Basic process is to create a filtered series which removes the AR(p) effects from the series under test followed by an auxiliary regression similar to that of Kwiatkowski et al (1992). The AR(p) coefficients are obtained by estimating an ARIMA(p, 1, 1) model. Two methods are provided for ARIMA estimation: MLE and two-stage least squares. Two methods are provided for residual variance estimation used in the calculation of the test statistic. The first method ('var94') is the mean of the squared residuals from the filtered regression. The second method ('var99') is the MA(1) coefficient times the mean of the squared residuals from the ARIMA(p, 1, 1) filtering model. An empirical autolag procedure is provided. In this context, the number of lags is equal to the number of AR(p) terms used in the filtering step. The number of AR(p) terms is set equal to the to the first PACF falling within the 95% confidence interval. Maximum number of AR lags is limited to the smaller of 10 or 1/2 series length.
 
 ## References
 Kwiatkowski, D., Phillips, P.C.B., Schmidt, P. & Shin, Y. (1992). Testing the null hypothesis of stationarity against the alternative of a unit root. Journal of Econometrics, 54: 159–178.
@@ -48,7 +48,7 @@ Schwert, G W. (1987). Effects of model specification on tests for unit roots in 
 ## Requirements
 Python 3.6 \
 Numpy 1.13.1 \
-Statsmodels 0.9.0 \
+Statsmodels 0.14.0 \
 Pandas 0.20.3
 
 ## Running
